@@ -5,6 +5,10 @@
 
 ![GoldenHourRadar cover](assets/cover.png)
 
+## 在线体验 Live Demo
+
+[https://sunset-radar.pages.dev](https://sunset-radar.pages.dev)
+
 霞光雷达是一个单文件网页应用，用免费天气 API、分层云量、降水、能见度和太阳方向光路采样，估算未来 7 天的朝霞 / 晚霞可拍摄概率。
 
 GoldenHourRadar is a single-file web app that estimates sunrise and sunset cloud-color potential using free weather data, layered cloud cover, precipitation risk, visibility, and a simple sun-path sampling model.
@@ -162,4 +166,3 @@ Copy this repo link into Doubao, DeepSeek, Cursor, Codex, or any coding agent, t
 ## 许可证 License
 
 MIT
-

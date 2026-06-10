@@ -13,8 +13,8 @@
 
 GoldenHourRadar is a single-file web app that estimates sunrise and sunset cloud-color potential using free weather data, layered cloud cover, precipitation risk, visibility, and a simple sun-path sampling model.
 
-> 这不是专业气象预报，而是一个适合摄影师快速判断“要不要出门”的 Vibe Coding 开源模板。  
-> This is not a meteorological-grade forecast. It is a practical Vibe Coding template for photographers deciding whether to go out and shoot.
+> 这是一个面向摄影场景的开源实验项目，用于辅助判断日出 / 日落前后的云层与光线条件。  
+> This is an open-source experimental project for photography planning, designed to help evaluate cloud and light conditions around sunrise and sunset.
 
 ![Mobile preview](assets/preview-mobile.png)
 
@@ -152,11 +152,11 @@ const CONFIG = {
 - 翻译或改写 UI 文案  
   Translate or rewrite UI copy
 
-## 给 Agent 使用 Use With An Agent
+## 二次开发 Development With An Agent
 
-把这个仓库链接丢给豆包、DeepSeek、Cursor、Codex 或其他编程 Agent，然后使用 [PROMPT.md](PROMPT.md) 里的提示词。
+如果你想基于这个项目改出自己的城市版本，可以把仓库链接提供给豆包、DeepSeek、Cursor、Codex 或其他编程 Agent，然后使用 [PROMPT.md](PROMPT.md) 里的提示词作为开发说明。
 
-Copy this repo link into Doubao, DeepSeek, Cursor, Codex, or any coding agent, then use the prompt in [PROMPT.md](PROMPT.md).
+To build your own city-specific version, provide this repository link to Doubao, DeepSeek, Cursor, Codex, or another coding agent, then use the prompt in [PROMPT.md](PROMPT.md) as the implementation brief.
 
 ## 项目名称 Project Name
 

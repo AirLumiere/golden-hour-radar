@@ -2,7 +2,7 @@
   "name": "golden-hour-radar",
   "version": "0.1.0",
   "private": true,
-  "description": "A lightweight sunrise and sunset cloud color prediction web app for photographers.",
+  "description": "霞光雷达：面向摄影爱好者的朝霞 / 晚霞预测网页工具。A lightweight sunrise and sunset cloud-color prediction web app for photographers.",
   "scripts": {
     "dev": "python3 -m http.server 4173",
     "start": "python3 -m http.server 4173"
@@ -17,4 +17,3 @@
   ],
   "license": "MIT"
 }
-

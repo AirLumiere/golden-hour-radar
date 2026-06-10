@@ -1,68 +1,87 @@
-# GoldenHourRadar
+# 霞光雷达 GoldenHourRadar
 
-中文名：**霞光雷达**
+**面向摄影爱好者的朝霞 / 晚霞预测工具。**  
+**A lightweight sunrise and sunset cloud-color prediction tool for photographers.**
 
-A lightweight, single-file web app for predicting sunrise and sunset cloud color potential. It combines weather forecast data, layered cloud cover, precipitation risk, visibility, and a simple sun-path cloud sampling model.
+![GoldenHourRadar cover](assets/cover.png)
 
-这是一个给摄影爱好者用的火烧云 / 朝霞 / 晚霞预测原型。它不追求专业气象级精度，而是提供一个足够直观、好改、适合 Vibe Coding 复刻的开源模板。
+霞光雷达是一个单文件网页应用，用免费天气 API、分层云量、降水、能见度和太阳方向光路采样，估算未来 7 天的朝霞 / 晚霞可拍摄概率。
+
+GoldenHourRadar is a single-file web app that estimates sunrise and sunset cloud-color potential using free weather data, layered cloud cover, precipitation risk, visibility, and a simple sun-path sampling model.
+
+> 这不是专业气象预报，而是一个适合摄影师快速判断“要不要出门”的 Vibe Coding 开源模板。  
+> This is not a meteorological-grade forecast. It is a practical Vibe Coding template for photographers deciding whether to go out and shoot.
 
 ![Mobile preview](assets/preview-mobile.png)
 
-## Features
+## 功能 Features
 
-- 7-day sunrise / sunset prediction
-- City and travel-destination selector
-- Interactive map sampling points
-- Fire-cloud score from 0 to 100
-- Local weather checks: precipitation, wind, visibility, humidity
-- Sun-path cloud quality sampling
-- Mobile-first frosted-glass UI
-- Chinese map by default, English map via URL parameter
-- No backend required
+- 未来 7 天朝霞 / 晚霞预测  
+  7-day sunrise / sunset prediction
+- 国内城市与旅游点选择  
+  City and travel-destination selector
+- 地图采样点交互  
+  Interactive map sampling points
+- 0-100 火烧云指数  
+  Fire-cloud score from 0 to 100
+- 降水、风速、能见度、湿度、本地天气判断  
+  Local weather checks: precipitation, wind, visibility, humidity
+- 按太阳方向采样云层质量  
+  Sun-path cloud quality sampling
+- 手机端磨砂玻璃 UI  
+  Mobile-first frosted-glass UI
+- 默认中文地图，也支持英文地图  
+  Chinese map by default, English map via URL parameter
+- 无需后端，直接本地运行  
+  No backend required
 
-## Quick Start
+## 快速开始 Quick Start
 
 ```bash
 python3 -m http.server 4173
 ```
 
-Open:
+打开 / Open:
 
 ```text
 http://localhost:4173
 ```
 
+如果文件没有命名为 `index.html`，请打开：  
 If your file is not named `index.html`, open:
 
 ```text
 http://localhost:4173/index.html
 ```
 
-## Map Language
+## 地图语言 Map Language
 
-Chinese map:
+中文地图 / Chinese map:
 
 ```text
 http://localhost:4173
 ```
 
-English / international map:
+英文 / 国际地图 / English or international map:
 
 ```text
 http://localhost:4173?map=en
 ```
 
-The map is powered by MapLibre GL. The Chinese base map uses Gaode raster tiles; the English map uses OpenStreetMap raster tiles.
+地图由 MapLibre GL 渲染。中文底图使用高德瓦片，英文底图使用 OpenStreetMap 瓦片。
 
-## Data Source
+The map is rendered with MapLibre GL. The Chinese base map uses Gaode raster tiles; the English map uses OpenStreetMap raster tiles.
 
+## 数据来源 Data Source
+
+天气数据来自免费的 Open-Meteo Forecast API：  
 Weather data comes from the free Open-Meteo Forecast API:
 
 ```text
 https://api.open-meteo.com/v1/forecast
 ```
 
-Used fields:
+使用字段 / Used fields:
 
 - `cloud_cover`
 - `cloud_cover_low`
@@ -75,22 +94,33 @@ Used fields:
 - `daily.sunrise`
 - `daily.sunset`
 
-## How The Score Works
+## 判断逻辑 How The Score Works
 
-The score is not just based on the cloud above your head.
+这个项目不会只看你头顶的云。
+
+The score is not based only on the clouds above your head.
+
+晚霞模式会看观察点西侧的云，朝霞模式会看观察点东侧的云。每个地图点都会综合：
 
 For sunset, it samples clouds toward the west. For sunrise, it samples clouds toward the east. Each map point checks:
 
-- local weather near the shooting point
-- cloud quality along the sun direction
-- whether low clouds or rain block the light path
-- whether mid/high clouds can become a colored canvas
-- visibility and humidity
+- 本地点天气：降水、低云、能见度、风速  
+  Local weather: rain, low cloud, visibility, wind
+- 太阳方向云层：35km、90km、160km 三段光路  
+  Sun-path cloud layers: 35km, 90km, 160km
+- 低云或降水是否阻挡光路  
+  Whether low clouds or rain block the light path
+- 中高云是否能成为被染色的画布  
+  Whether mid/high clouds can become a colored canvas
+- 湿度与通透度  
+  Humidity and visibility
 
-See [docs/algorithm.md](docs/algorithm.md).
+详细说明见 [docs/algorithm.md](docs/algorithm.md)。  
+See [docs/algorithm.md](docs/algorithm.md) for details.
 
-## Customize
+## 自定义 Customize
 
+最常改的配置在 `index.html` 顶部附近：  
 Most useful knobs are near the top of `index.html`:
 
 ```js
@@ -103,29 +133,33 @@ const CONFIG = {
 };
 ```
 
-Common changes:
+常见修改 / Common changes:
 
-- Change `regions` to your own city list
-- Change `radiusKm` for the search radius
-- Change `stepKm` for sampling density
-- Change `rayDistances` and `rayWeights` for sun-path sampling
-- Adjust colors in `colorForScore`
-- Translate UI copy
+- 修改 `regions`，换成你的城市列表  
+  Change `regions` to your own city list
+- 修改 `radiusKm`，调整机动范围  
+  Change `radiusKm` for the search radius
+- 修改 `stepKm`，调整采样密度  
+  Change `stepKm` for sampling density
+- 修改 `rayDistances` 和 `rayWeights`，调整光路模型  
+  Change `rayDistances` and `rayWeights` for sun-path sampling
+- 修改 `colorForScore`，调整地图点颜色  
+  Adjust colors in `colorForScore`
+- 翻译或改写 UI 文案  
+  Translate or rewrite UI copy
 
-## Use With An Agent
+## 给 Agent 使用 Use With An Agent
+
+把这个仓库链接丢给豆包、DeepSeek、Cursor、Codex 或其他编程 Agent，然后使用 [PROMPT.md](PROMPT.md) 里的提示词。
 
 Copy this repo link into Doubao, DeepSeek, Cursor, Codex, or any coding agent, then use the prompt in [PROMPT.md](PROMPT.md).
 
-## Project Names
+## 项目名称 Project Name
 
-- English: **GoldenHourRadar**
-- Chinese: **霞光雷达**
+- 中文名 / Chinese: **霞光雷达**
+- 英文名 / English: **GoldenHourRadar**
 
-Alternative Chinese display name if you want stronger Douyin/Xiaohongshu recognition:
-
-- **火烧云雷达**
-
-## License
+## 许可证 License
 
 MIT
 

@@ -1,5 +1,6 @@
-# Agent Prompt
+# Agent 复刻提示词 Agent Prompt
 
+把下面这段提示词复制到豆包、DeepSeek、Cursor、Codex 或其他编程 Agent 里。  
 Copy this prompt into your coding agent.
 
 ```text
@@ -18,4 +19,3 @@ Copy this prompt into your coding agent.
 
 请先阅读 index.html 和 docs/algorithm.md，再修改。不要引入复杂框架，保持项目适合初学者复制。
 ```
-

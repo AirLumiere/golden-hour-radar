@@ -1,0 +1,2031 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>霞光雷达 GoldenHourRadar</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+  <style>
+    :root {
+      --bg: #eef8ff;
+      --panel: rgba(255, 255, 255, 0.8);
+      --line: rgba(20, 64, 95, 0.16);
+      --text: #122f43;
+      --muted: #577489;
+      --gold: #ffb02e;
+      --hot: #ef476f;
+      --good: #19a7ce;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 80% 10%, rgba(255, 184, 77, 0.45), transparent 22%),
+        radial-gradient(circle at 17% 15%, rgba(43, 201, 255, 0.32), transparent 24%),
+        linear-gradient(135deg, #f1fbff 0%, #fff7e7 54%, #ffeaf0 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+      overflow: hidden;
+    }
+
+    #map {
+      position: fixed;
+      inset: 0;
+      background: #eaf7ff;
+    }
+
+    .shell {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) 1fr;
+      grid-template-rows: 1fr auto;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .panel,
+    .timeline,
+    .legend {
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 22px 70px rgba(51, 89, 118, 0.22);
+    }
+
+    .panel {
+      align-self: start;
+      border-radius: 8px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(25, 167, 206, 0.1) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(25, 167, 206, 0.08) 1px, transparent 1px);
+      background-size: 22px 22px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.42), transparent 62%);
+    }
+
+    .brand {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .logo-lockup {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .logo-mark {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 68% 30%, #ffd166 0 9%, transparent 10%),
+        linear-gradient(135deg, rgba(239, 71, 111, 0.92), rgba(255, 159, 28, 0.88) 48%, rgba(25, 167, 206, 0.86));
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+        0 12px 28px rgba(239, 71, 111, 0.22);
+      overflow: hidden;
+    }
+
+    .logo-mark::before {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-left-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 999px;
+      transform: rotate(-18deg);
+    }
+
+    .logo-mark::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 7px;
+      bottom: 12px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 -6px 0 rgba(255, 255, 255, 0.34);
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      width: max-content;
+      max-width: 100%;
+      font-size: 27px;
+      line-height: 1;
+      font-weight: 850;
+      color: #102d42;
+      letter-spacing: 0;
+      position: relative;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    h1::after {
+      content: "";
+      display: block;
+      height: 3px;
+      margin-top: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #19a7ce, #ffd166 48%, #ef476f);
+      box-shadow: 0 0 18px rgba(239, 71, 111, 0.28);
+    }
+
+    .tag {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      border: 1px solid rgba(239, 71, 111, 0.28);
+      color: #b8325f;
+      background: rgba(255, 236, 241, 0.86);
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    .search {
+      display: grid;
+      grid-template-columns: 0.86fr 1fr auto;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    input,
+    button,
+    select {
+      height: 40px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--text);
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    input {
+      padding: 0 11px;
+      min-width: 0;
+      outline: none;
+    }
+
+    select {
+      width: 100%;
+      padding: 0 10px;
+      outline: none;
+      appearance: none;
+    }
+
+    button {
+      padding: 0 13px;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease;
+      color: #174057;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.94);
+      transform: translateY(-1px);
+    }
+
+    .seg {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .seg button {
+      padding: 0 6px;
+      font-size: 13px;
+    }
+
+    .seg button.active {
+      background: linear-gradient(135deg, #ffd166, #ef476f);
+      color: #2b140b;
+      border-color: transparent;
+      font-weight: 700;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .score {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.58);
+      min-height: 98px;
+    }
+
+    .score.primary strong {
+      font-size: 58px;
+    }
+
+    .score span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .score strong {
+      font-size: 42px;
+      line-height: 1;
+      color: #ef476f;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .facts {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0 14px;
+    }
+
+    .date-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin: 0 0 14px;
+    }
+
+    .date-btn {
+      height: 50px;
+      padding: 5px 4px;
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      font-size: 12px;
+      line-height: 1.1;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .date-btn.active {
+      background: linear-gradient(135deg, #35c9ff, #ffd166 48%, #ef476f);
+      color: #1b1b1b;
+      border-color: transparent;
+      font-weight: 750;
+    }
+
+    .date-btn small {
+      font-size: 11px;
+      color: inherit;
+      opacity: 0.76;
+    }
+
+    .weather-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 0 0 10px;
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .weather-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .fact {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      border-bottom: 1px solid rgba(24, 67, 94, 0.09);
+      padding-bottom: 8px;
+    }
+
+    .fact b {
+      color: var(--text);
+      font-weight: 650;
+      text-align: right;
+    }
+
+    .metric-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 0 0 10px;
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .metric-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .metric-head b {
+      color: var(--text);
+      font-weight: 720;
+      text-align: right;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .data-bar {
+      display: grid;
+      grid-template-columns: 66px 1fr 52px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .data-bar span {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .data-bar b {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(18, 47, 67, 0.11);
+    }
+
+    .bar-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #53cdda, #ffd166, #ef476f);
+      transition: width 220ms ease, background 220ms ease;
+    }
+
+    .compact-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px 12px;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .compact-stats b {
+      color: var(--text);
+      font-weight: 680;
+      float: right;
+      margin-left: 8px;
+    }
+
+    .reasons {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    .reasons li {
+      color: #294b60;
+      font-size: 13px;
+      line-height: 1.45;
+      padding-left: 13px;
+      position: relative;
+    }
+
+    .reasons li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--hot);
+    }
+
+    .timeline {
+      grid-column: 1 / 3;
+      justify-self: center;
+      width: min(780px, calc(100vw - 36px));
+      border-radius: 8px;
+      padding: 13px 16px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .timeline label {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--gold);
+    }
+
+    .legend {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      width: 230px;
+      border-radius: 8px;
+      padding: 13px;
+    }
+
+    .legend-title {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .ramp {
+      height: 11px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(86, 190, 210, 0), #68d8d6, #ffd166, #ff9f1c, #ef476f, #b5179e);
+      margin-bottom: 8px;
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .status {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .loading-card {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 3;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: grid;
+      place-items: center;
+      gap: 10px;
+      min-width: 210px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 52px rgba(51, 89, 118, 0.22);
+      color: var(--text);
+      font-size: 13px;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .loading-dot {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 3px solid rgba(25, 167, 206, 0.2);
+      border-top-color: #ef476f;
+      animation: spin 800ms linear infinite;
+    }
+
+    body:not(.is-loading) .loading-card {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-marker {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.92);
+      box-shadow:
+        0 0 0 6px rgba(25, 167, 206, 0.12),
+        0 8px 18px rgba(70, 91, 111, 0.22);
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .radar-marker:hover {
+      transform: translate(-50%, -50%) scale(1.18);
+      box-shadow:
+        0 0 0 8px rgba(255, 209, 102, 0.2),
+        0 10px 24px rgba(70, 91, 111, 0.24);
+    }
+
+    .radar-marker.hot {
+      width: 30px;
+      height: 30px;
+      box-shadow:
+        0 0 0 9px rgba(239, 71, 111, 0.18),
+        0 0 22px rgba(239, 71, 111, 0.38),
+        0 10px 24px rgba(70, 91, 111, 0.2);
+    }
+
+    @media (max-width: 760px) {
+      body {
+        overflow: hidden;
+        min-height: 100dvh;
+      }
+
+      .shell {
+        inset: 0;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      .panel {
+        width: 100%;
+        max-height: min(42dvh, 370px);
+        padding: 12px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(236, 249, 255, 0.45)),
+          radial-gradient(circle at 12% 8%, rgba(83, 205, 220, 0.22), transparent 36%),
+          radial-gradient(circle at 92% 16%, rgba(239, 71, 111, 0.14), transparent 34%);
+        border-color: rgba(255, 255, 255, 0.58);
+        backdrop-filter: blur(24px) saturate(1.35);
+        -webkit-backdrop-filter: blur(24px) saturate(1.35);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.78),
+          inset 0 -1px 0 rgba(25, 167, 206, 0.08),
+          0 18px 56px rgba(29, 72, 102, 0.24);
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .panel::before {
+        background:
+          linear-gradient(90deg, rgba(25, 167, 206, 0.12) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(25, 167, 206, 0.09) 1px, transparent 1px),
+          linear-gradient(110deg, transparent 0 28%, rgba(255, 255, 255, 0.42) 34%, transparent 44%);
+        background-size: 22px 22px, 22px 22px, 180% 100%;
+        mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 72%);
+      }
+
+      .legend {
+        display: none;
+      }
+
+      .timeline {
+        grid-column: 1;
+        align-self: end;
+        width: calc(100vw - 20px);
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(calc(100% + 16px));
+        transition: transform 220ms ease, opacity 220ms ease;
+      }
+
+      body.has-mobile-selection .timeline {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .timeline label {
+        font-size: 11px;
+      }
+
+      .brand {
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .logo-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+      }
+
+      .logo-lockup {
+        gap: 8px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      h1::after {
+        height: 2px;
+        margin-top: 5px;
+      }
+
+      .tag {
+        display: none;
+      }
+
+      .badge {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+
+      .search {
+        grid-template-columns: 1fr 1fr 58px;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+
+      input,
+      button,
+      select {
+        height: 36px;
+        font-size: 13px;
+      }
+
+      button {
+        padding: 0 8px;
+      }
+
+      .seg {
+        margin-bottom: 8px;
+      }
+
+      .date-strip {
+        gap: 4px;
+        margin-bottom: 7px;
+      }
+
+      .date-btn {
+        height: 42px;
+        padding: 4px 2px;
+        font-size: 11px;
+      }
+
+      .date-btn small {
+        font-size: 10px;
+      }
+
+      .score-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 7px;
+      }
+
+      .score {
+        min-height: 0;
+        height: 74px;
+        padding: 7px 10px;
+      }
+
+      .score.primary strong {
+        font-size: 34px;
+      }
+
+      .score strong {
+        font-size: 27px;
+      }
+
+      .score small,
+      .score span {
+        font-size: 10px;
+      }
+
+      .score small {
+        margin-top: 3px;
+      }
+
+      .compact-stats {
+        gap: 4px 10px;
+        margin-bottom: 8px;
+        font-size: 11px;
+      }
+
+      .metric-card,
+      .weather-card {
+        padding: 9px 10px;
+        margin-bottom: 8px;
+      }
+
+      .metric-head,
+      .weather-title {
+        margin-bottom: 7px;
+      }
+
+      .bar-list {
+        gap: 6px;
+      }
+
+      .data-bar {
+        grid-template-columns: 50px 1fr 48px;
+        gap: 7px;
+        font-size: 11px;
+      }
+
+      .bar-track {
+        height: 9px;
+      }
+
+      .reasons {
+        gap: 6px;
+      }
+
+      .reasons li {
+        font-size: 11px;
+        line-height: 1.38;
+      }
+
+      .radar-marker {
+        width: 22px;
+        height: 22px;
+      }
+
+      .radar-marker.hot {
+        width: 27px;
+        height: 27px;
+      }
+
+      .maplibregl-ctrl-bottom-right {
+        bottom: 92px;
+      }
+
+      .loading-card {
+        top: 58%;
+        min-width: 190px;
+        padding: 14px 16px;
+      }
+    }
+  </style>
+</head>
+<body class="is-loading">
+  <div id="map"></div>
+  <div class="loading-card" aria-live="polite">
+    <div class="loading-dot" aria-hidden="true"></div>
+    <div id="loadingText">正在生成采样点...</div>
+  </div>
+
+  <aside class="legend">
+    <div class="legend-title">
+      <span id="legendName">火烧云指数</span>
+      <span>0-100</span>
+    </div>
+    <div class="ramp"></div>
+    <div class="scale"><span>低</span><span>可看</span><span>值得冲</span></div>
+    <div id="status" class="status">正在获取天气数据...</div>
+  </aside>
+
+  <main class="shell">
+    <section class="panel">
+      <div class="brand">
+        <div class="logo-lockup">
+          <div class="logo-mark" aria-hidden="true"></div>
+          <div class="brand-copy">
+            <h1>霞光雷达</h1>
+            <div class="tag">主要城市 / 旅游点 · 50km 摄影机动范围</div>
+          </div>
+        </div>
+        <div class="badge" id="modeBadge">晚霞</div>
+      </div>
+
+      <div class="search">
+        <select id="provinceSelect" aria-label="省份"></select>
+        <select id="citySelect" aria-label="城市"></select>
+        <button id="locateBtn">切换</button>
+      </div>
+
+      <div class="seg">
+        <button class="active" data-mode="evening">晚霞</button>
+        <button data-mode="morning">朝霞</button>
+      </div>
+
+      <div id="dateStrip" class="date-strip" aria-label="未来 7 天"></div>
+
+      <div class="score-grid">
+        <div class="score primary">
+          <span>火烧云指数</span>
+          <strong id="localScore">--</strong>
+          <small id="localGrade">计算中</small>
+        </div>
+        <div class="score">
+          <span>出门建议</span>
+          <strong id="goLevel">--</strong>
+          <small id="goHint">等数据</small>
+        </div>
+      </div>
+
+      <div class="compact-stats">
+        <div>当前点 <b id="selectedPoint">城市中心</b></div>
+        <div>最佳窗口 <b id="bestWindow">--</b></div>
+        <div>50km 最高 <b id="bestArea">--</b></div>
+        <div>采样时间 <b id="sampleFacts">--</b></div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-head">
+          <span>云层与光路</span>
+          <b id="rayFacts">--</b>
+        </div>
+        <div class="bar-list">
+          <div class="data-bar"><span>光路</span><div class="bar-track"><div id="rayBar" class="bar-fill"></div></div><b id="rayValue">--</b></div>
+          <div class="data-bar"><span>低云</span><div class="bar-track"><div id="lowBar" class="bar-fill"></div></div><b id="lowValue">--</b></div>
+          <div class="data-bar"><span>中云</span><div class="bar-track"><div id="midBar" class="bar-fill"></div></div><b id="midValue">--</b></div>
+          <div class="data-bar"><span>高云</span><div class="bar-track"><div id="highBar" class="bar-fill"></div></div><b id="highValue">--</b></div>
+        </div>
+      </div>
+
+      <div class="weather-card">
+        <div class="weather-title">
+          <span>本地天气</span>
+          <b id="weatherSummary">读取中</b>
+        </div>
+        <div class="bar-list">
+          <div class="data-bar"><span>降水</span><div class="bar-track"><div id="rainBar" class="bar-fill"></div></div><b id="rainFacts">--</b></div>
+          <div class="data-bar"><span>风速</span><div class="bar-track"><div id="windBar" class="bar-fill"></div></div><b id="windFacts">--</b></div>
+          <div class="data-bar"><span>能见度</span><div class="bar-track"><div id="visibilityBar" class="bar-fill"></div></div><b id="visibilityFacts">--</b></div>
+          <div class="data-bar"><span>湿度</span><div class="bar-track"><div id="humidityBar" class="bar-fill"></div></div><b id="humidityValue">--</b></div>
+        </div>
+      </div>
+
+      <ul id="reasons" class="reasons">
+        <li>正在读取分层云量、能见度、湿度和降水数据。</li>
+      </ul>
+    </section>
+
+    <section class="timeline">
+      <label for="timeSlider">时间窗口</label>
+      <input id="timeSlider" type="range" min="0" max="4" value="2" />
+      <label id="timeLabel">日落前后</label>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script>
+    const CONFIG = {
+      radiusKm: 50,
+      stepKm: 15,
+      mapProvider: new URLSearchParams(location.search).get("map") === "en" ? "en" : "zh",
+      defaultCenter: [113.3245, 23.1065],
+      defaultZoom: 8.35,
+      forecastVars: [
+        "cloud_cover",
+        "cloud_cover_low",
+        "cloud_cover_mid",
+        "cloud_cover_high",
+        "relative_humidity_2m",
+        "visibility",
+        "precipitation",
+        "wind_speed_10m"
+      ]
+    };
+
+    const regions = {
+      "直辖市": [
+        ["北京", [116.4074, 39.9042]],
+        ["上海", [121.4737, 31.2304]],
+        ["天津", [117.2009, 39.0842]],
+        ["重庆", [106.5516, 29.5630]]
+      ],
+      "广东": [
+        ["广州", [113.3245, 23.1065]],
+        ["深圳", [114.0579, 22.5431]],
+        ["珠海", [113.5767, 22.2707]],
+        ["佛山", [113.1214, 23.0215]],
+        ["东莞", [113.7518, 23.0207]],
+        ["惠州", [114.4168, 23.1115]],
+        ["汕头", [116.6819, 23.3541]],
+        ["湛江", [110.3594, 21.2707]]
+      ],
+      "浙江": [
+        ["杭州", [120.1551, 30.2741]],
+        ["宁波", [121.5503, 29.8739]],
+        ["温州", [120.6994, 27.9949]],
+        ["舟山", [122.2072, 29.9853]],
+        ["湖州", [120.0868, 30.8943]],
+        ["绍兴", [120.5802, 30.0303]]
+      ],
+      "江苏": [
+        ["南京", [118.7969, 32.0603]],
+        ["苏州", [120.5853, 31.2989]],
+        ["无锡", [120.3119, 31.4912]],
+        ["扬州", [119.4127, 32.3932]],
+        ["常州", [119.9737, 31.8107]]
+      ],
+      "福建": [
+        ["福州", [119.2965, 26.0745]],
+        ["厦门", [118.0894, 24.4798]],
+        ["泉州", [118.6757, 24.8741]],
+        ["武夷山", [118.0353, 27.7566]]
+      ],
+      "海南": [
+        ["海口", [110.3312, 20.0310]],
+        ["三亚", [109.5119, 18.2528]],
+        ["万宁", [110.3897, 18.7951]],
+        ["陵水", [110.0375, 18.5060]]
+      ],
+      "广西": [
+        ["南宁", [108.3669, 22.8170]],
+        ["桂林", [110.2902, 25.2736]],
+        ["北海", [109.1202, 21.4811]],
+        ["阳朔", [110.4963, 24.7785]]
+      ],
+      "云南": [
+        ["昆明", [102.8329, 24.8801]],
+        ["大理", [100.2676, 25.6065]],
+        ["丽江", [100.2278, 26.8565]],
+        ["香格里拉", [99.7060, 27.8269]],
+        ["西双版纳", [100.7974, 22.0075]],
+        ["腾冲", [98.4977, 25.0205]]
+      ],
+      "四川": [
+        ["成都", [104.0665, 30.5728]],
+        ["乐山", [103.7654, 29.5521]],
+        ["峨眉山", [103.4845, 29.6012]],
+        ["九寨沟", [104.2367, 33.2620]],
+        ["康定", [101.9638, 30.0507]],
+        ["稻城", [100.2979, 29.0379]]
+      ],
+      "贵州": [
+        ["贵阳", [106.6302, 26.6477]],
+        ["安顺", [105.9476, 26.2531]],
+        ["荔波", [107.8863, 25.4120]],
+        ["黔东南", [107.9828, 26.5834]]
+      ],
+      "湖南": [
+        ["长沙", [112.9388, 28.2282]],
+        ["张家界", [110.4792, 29.1171]],
+        ["凤凰古城", [109.5983, 27.9483]],
+        ["岳阳", [113.1287, 29.3573]]
+      ],
+      "湖北": [
+        ["武汉", [114.3055, 30.5928]],
+        ["宜昌", [111.2865, 30.6919]],
+        ["恩施", [109.4882, 30.2722]],
+        ["神农架", [110.6759, 31.7445]]
+      ],
+      "安徽": [
+        ["合肥", [117.2272, 31.8206]],
+        ["黄山", [118.3375, 29.7147]],
+        ["宏村", [117.9874, 30.0034]],
+        ["池州", [117.4916, 30.6648]]
+      ],
+      "江西": [
+        ["南昌", [115.8582, 28.6820]],
+        ["景德镇", [117.1849, 29.2744]],
+        ["婺源", [117.8619, 29.2481]],
+        ["庐山", [115.9825, 29.5680]]
+      ],
+      "山东": [
+        ["济南", [117.1201, 36.6512]],
+        ["青岛", [120.3826, 36.0671]],
+        ["烟台", [121.4479, 37.4638]],
+        ["威海", [122.1204, 37.5131]],
+        ["泰安", [117.0876, 36.2003]]
+      ],
+      "河南": [
+        ["郑州", [113.6254, 34.7466]],
+        ["洛阳", [112.4540, 34.6197]],
+        ["开封", [114.3143, 34.7973]],
+        ["焦作", [113.2418, 35.2159]]
+      ],
+      "河北": [
+        ["石家庄", [114.5149, 38.0428]],
+        ["秦皇岛", [119.6005, 39.9354]],
+        ["承德", [117.9627, 40.9529]],
+        ["张家口", [114.8863, 40.7689]]
+      ],
+      "山西": [
+        ["太原", [112.5489, 37.8706]],
+        ["大同", [113.3001, 40.0768]],
+        ["平遥", [112.1756, 37.1896]],
+        ["五台山", [113.5932, 39.0098]]
+      ],
+      "陕西": [
+        ["西安", [108.9398, 34.3416]],
+        ["延安", [109.4897, 36.5855]],
+        ["宝鸡", [107.2377, 34.3619]],
+        ["华山", [110.0895, 34.5327]]
+      ],
+      "甘肃": [
+        ["兰州", [103.8343, 36.0611]],
+        ["敦煌", [94.6619, 40.1421]],
+        ["张掖", [100.4498, 38.9259]],
+        ["嘉峪关", [98.2891, 39.7731]]
+      ],
+      "青海": [
+        ["西宁", [101.7782, 36.6171]],
+        ["青海湖", [100.1478, 36.8965]],
+        ["茶卡", [99.0786, 36.7916]],
+        ["海西", [97.3708, 37.3771]]
+      ],
+      "宁夏": [
+        ["银川", [106.2309, 38.4872]],
+        ["中卫", [105.1968, 37.5002]]
+      ],
+      "新疆": [
+        ["乌鲁木齐", [87.6168, 43.8256]],
+        ["喀什", [75.9898, 39.4704]],
+        ["伊宁", [81.2777, 43.9080]],
+        ["阿勒泰", [88.1396, 47.8484]],
+        ["吐鲁番", [89.1895, 42.9513]],
+        ["库尔勒", [86.1452, 41.7641]]
+      ],
+      "西藏": [
+        ["拉萨", [91.1322, 29.6604]],
+        ["林芝", [94.3615, 29.6489]],
+        ["日喀则", [88.8851, 29.2675]],
+        ["阿里", [80.1058, 32.5011]]
+      ],
+      "内蒙古": [
+        ["呼和浩特", [111.7492, 40.8426]],
+        ["呼伦贝尔", [119.7658, 49.2116]],
+        ["赤峰", [118.8876, 42.2569]],
+        ["鄂尔多斯", [109.7813, 39.6083]]
+      ],
+      "东北": [
+        ["沈阳", [123.4315, 41.8057]],
+        ["大连", [121.6147, 38.9140]],
+        ["长春", [125.3235, 43.8171]],
+        ["吉林", [126.5494, 43.8378]],
+        ["哈尔滨", [126.5349, 45.8038]],
+        ["漠河", [122.5393, 52.9721]]
+      ],
+      "港澳台": [
+        ["香港", [114.1694, 22.3193]],
+        ["澳门", [113.5439, 22.1987]],
+        ["台北", [121.5654, 25.0330]],
+        ["花莲", [121.6015, 23.9872]]
+      ]
+    };
+
+    const places = Object.fromEntries(Object.values(regions).flat().map(([name, coord]) => [name, coord]));
+    const provinceSelect = document.getElementById("provinceSelect");
+    const citySelect = document.getElementById("citySelect");
+
+    Object.keys(regions).forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      if (name === "广东") option.selected = true;
+      provinceSelect.appendChild(option);
+    });
+
+    function fillCitySelect(regionName, preferredCity = null) {
+      citySelect.innerHTML = "";
+      regions[regionName].forEach(([name]) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        if (name === preferredCity) option.selected = true;
+        citySelect.appendChild(option);
+      });
+    }
+
+    fillCitySelect("广东", "广州");
+
+    function mapStyle(provider) {
+      const chineseTiles = [
+        "https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}",
+        "https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}",
+        "https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}"
+      ];
+      const englishTiles = [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ];
+      return {
+        version: 8,
+        sources: {
+          base: {
+            type: "raster",
+            tiles: provider === "en" ? englishTiles : chineseTiles,
+            tileSize: 256,
+            attribution: provider === "en" ? "© OpenStreetMap" : "© 高德地图"
+          }
+        },
+        layers: [
+          { id: "base", type: "raster", source: "base", paint: { "raster-opacity": 0.92, "raster-saturation": 0.12 } }
+        ]
+      };
+    }
+
+    const state = {
+      center: CONFIG.defaultCenter,
+      mode: "evening",
+      slot: 2,
+      dayOffset: 0,
+      features: [],
+      markers: [],
+      local: null,
+      selected: null,
+      best: null,
+      mapReady: false
+    };
+    const weatherCache = new Map();
+    let refreshToken = 0;
+    let refreshDebounce = null;
+    const rayDistances = [35, 90, 160];
+    const rayWeights = [0.45, 0.35, 0.20];
+
+    const dateStrip = document.getElementById("dateStrip");
+    const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const button = document.createElement("button");
+      button.className = `date-btn ${i === 0 ? "active" : ""}`;
+      button.dataset.day = String(i);
+      button.innerHTML = `${i === 0 ? "今天" : weekdays[date.getDay()]}<small>${date.getMonth() + 1}/${date.getDate()}</small>`;
+      dateStrip.appendChild(button);
+    }
+
+    let map = null;
+    try {
+      map = new maplibregl.Map({
+        container: "map",
+        center: toMapCoord(CONFIG.defaultCenter),
+        zoom: CONFIG.defaultZoom,
+        pitch: 0,
+        bearing: 0,
+        style: mapStyle(CONFIG.mapProvider)
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "bottom-right");
+
+      map.on("load", () => {
+        state.mapReady = true;
+        map.addSource("radar", emptySource());
+        map.addLayer({
+          id: "radar-heat",
+          type: "heatmap",
+          source: "radar",
+          maxzoom: 12,
+          paint: {
+            "heatmap-weight": ["interpolate", ["linear"], ["get", "score"], 0, 0, 100, 1],
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 7, 0.8, 11, 1.5],
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 7, 24, 11, 58],
+            "heatmap-opacity": 0.78,
+            "heatmap-color": [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0, "rgba(83,205,220,0)",
+              0.18, "rgba(83,205,220,0.44)",
+              0.38, "rgba(255,209,102,0.66)",
+              0.58, "rgba(255,159,28,0.76)",
+              0.78, "rgba(239,71,111,0.84)",
+              1, "rgba(181,23,158,0.9)"
+            ]
+          }
+        });
+        map.addLayer({
+          id: "radar-points",
+          type: "circle",
+          source: "radar",
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["get", "score"], 0, 6, 100, 14],
+            "circle-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "score"],
+            0, "#53cdda",
+            45, "#ffd166",
+            70, "#ff9f1c",
+            85, "#ef476f",
+            100, "#b5179e"
+            ],
+            "circle-opacity": 0.72,
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "rgba(255,255,255,0.55)"
+          }
+        });
+        map.addSource("sunline", emptyLineSource());
+        map.addLayer({
+          id: "sunline-layer",
+          type: "line",
+          source: "sunline",
+          paint: {
+            "line-width": 3,
+            "line-color": "#ffc857",
+            "line-opacity": 0.82,
+            "line-dasharray": [1, 1.4]
+          }
+        });
+        map.on("click", "radar-points", (event) => {
+          const feature = findFeatureByCoordinates(event.features[0].geometry.coordinates) || event.features[0];
+          selectFeature(feature);
+        });
+
+        if (state.features.length) updateMap();
+        else refresh();
+      });
+    } catch (error) {
+      console.warn("Map initialization failed. Data panel will still work.", error);
+      setStatus("地图初始化失败，先显示评分数据。");
+      refresh();
+    }
+
+    function scheduleRefresh(delay = 220) {
+      clearTimeout(refreshDebounce);
+      refreshDebounce = setTimeout(refresh, delay);
+    }
+
+
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-mode]").forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+        state.mode = button.dataset.mode;
+        document.getElementById("modeBadge").textContent = state.mode === "evening" ? "晚霞" : "朝霞";
+        scheduleRefresh();
+      });
+    });
+
+    document.querySelectorAll("[data-day]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-day]").forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+        state.dayOffset = Number(button.dataset.day);
+        scheduleRefresh();
+      });
+    });
+
+    document.getElementById("timeSlider").addEventListener("input", (event) => {
+      state.slot = Number(event.target.value);
+      scheduleRefresh(120);
+    });
+
+    document.getElementById("locateBtn").addEventListener("click", () => {
+      const name = citySelect.value;
+      const next = places[name] || CONFIG.defaultCenter;
+      state.center = next;
+      focusMapOn(toMapCoord(next), { zoom: CONFIG.defaultZoom, duration: 650 });
+      scheduleRefresh();
+    });
+
+    provinceSelect.addEventListener("change", () => {
+      fillCitySelect(provinceSelect.value);
+      document.getElementById("locateBtn").click();
+    });
+
+    citySelect.addEventListener("change", () => {
+      document.getElementById("locateBtn").click();
+    });
+
+    async function refresh() {
+      const token = ++refreshToken;
+      setLoading(true);
+      setStatus("正在获取天气数据...");
+      try {
+        const { points, weatherByBase, fromCache, fromFallback, fromOffline } = await getWeatherBundle(state.center);
+        if (token !== refreshToken) return;
+        const features = [];
+        let local = null;
+
+        points.forEach((point, index) => {
+          const bundle = weatherByBase[index];
+          const evaluated = evaluatePoint(bundle.base, point, state.mode, state.slot, bundle.rays);
+          if (!evaluated) return;
+          const feature = {
+            type: "Feature",
+            properties: { ...evaluated, baseLon: point.lon, baseLat: point.lat },
+            geometry: { type: "Point", coordinates: toMapCoord([point.lon, point.lat]) }
+          };
+          features.push(feature);
+          if (point.isCenter) local = evaluated;
+        });
+
+        features.sort((a, b) => b.properties.score - a.properties.score);
+        state.features = features;
+        state.local = local || features[0]?.properties || null;
+        state.selected = null;
+        document.body.classList.remove("has-mobile-selection");
+        state.best = features[0] || null;
+        updateMap();
+        setTimeout(updateMap, 500);
+        if (isMobileViewport() && !state.selected) {
+          focusMapOn(toMapCoord(state.center), { zoom: CONFIG.defaultZoom, duration: 320 });
+        }
+        updatePanel();
+        setStatus(`${fromOffline ? "离线估算" : fromFallback ? "中心估算" : fromCache ? "缓存命中" : "已更新"} ${features.length} 个采样点 · ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`);
+        setLoading(false);
+      } catch (error) {
+        console.error(error);
+        setStatus("天气数据获取失败，稍后再试。");
+        setLoading(false);
+        document.getElementById("reasons").innerHTML = "<li>Open-Meteo 暂时不可用，或网络被浏览器拦截。</li>";
+      }
+    }
+
+    async function getWeatherBundle(center) {
+      const key = `${center.map((value) => value.toFixed(3)).join(",")}:${state.mode}:${state.dayOffset}`;
+      const cached = weatherCache.get(key);
+      if (cached && Date.now() - cached.updatedAt < 10 * 60 * 1000) {
+        return { ...cached, fromCache: true };
+      }
+      const points = makeGrid(center, CONFIG.radiusKm, CONFIG.stepKm);
+      const analysisPoints = makeAnalysisPoints(points, state.mode, state.dayOffset);
+      let weatherByBase = null;
+      let fromFallback = false;
+      let fromOffline = false;
+      try {
+        const weather = await fetchForecast(analysisPoints);
+        weatherByBase = groupWeatherByBase(analysisPoints, weather);
+      } catch (error) {
+        console.warn("Regional sampling failed, falling back to center estimate.", error);
+        try {
+          const centerPoint = points.find((point) => point.isCenter) || points[0];
+          const centerAnalysis = makeAnalysisPoints([centerPoint], state.mode, state.dayOffset);
+          const centerWeather = await fetchForecast(centerAnalysis);
+          const centerBundle = groupWeatherByBase(centerAnalysis, centerWeather)[0];
+          weatherByBase = points.map(() => centerBundle);
+          fromFallback = true;
+        } catch (fallbackError) {
+          console.warn("Center estimate failed, using offline estimate.", fallbackError);
+          const offlineWeather = analysisPoints.map((point) => makeOfflineForecast(point));
+          weatherByBase = groupWeatherByBase(analysisPoints, offlineWeather);
+          fromFallback = true;
+          fromOffline = true;
+        }
+      }
+      const bundle = { points, analysisPoints, weatherByBase, fromFallback, fromOffline, updatedAt: Date.now() };
+      weatherCache.set(key, bundle);
+      return { ...bundle, fromCache: false };
+    }
+
+    function makeAnalysisPoints(basePoints, mode, dayOffset) {
+      const points = [];
+      basePoints.forEach((point, baseIndex) => {
+        points.push({ ...point, baseIndex, role: "base", rayDistance: 0 });
+        const azimuth = sunAzimuth(point.lat, mode, dayOffset);
+        rayDistances.forEach((distance) => {
+          const [lon, lat] = destination([point.lon, point.lat], azimuth, distance);
+          points.push({ lon, lat, baseIndex, role: "ray", rayDistance: distance });
+        });
+      });
+      return points;
+    }
+
+    function groupWeatherByBase(analysisPoints, weather) {
+      const grouped = [];
+      analysisPoints.forEach((point, index) => {
+        if (!grouped[point.baseIndex]) grouped[point.baseIndex] = { base: null, rays: [] };
+        if (point.role === "base") grouped[point.baseIndex].base = weather[index];
+        else grouped[point.baseIndex].rays.push({ data: weather[index], distance: point.rayDistance });
+      });
+      return grouped;
+    }
+
+    function makeGrid(center, radiusKm, stepKm) {
+      const [lon, lat] = center;
+      const points = [{ lon, lat, distance: 0, bearing: 0, isCenter: true }];
+      const latKm = 111.32;
+      const lonKm = 111.32 * Math.cos(lat * Math.PI / 180);
+      for (let y = -radiusKm; y <= radiusKm; y += stepKm) {
+        for (let x = -radiusKm; x <= radiusKm; x += stepKm) {
+          const distance = Math.sqrt(x * x + y * y);
+          if (distance === 0 || distance > radiusKm) continue;
+          points.push({
+            lat: lat + y / latKm,
+            lon: lon + x / lonKm,
+            distance,
+            bearing: (Math.atan2(x, y) * 180 / Math.PI + 360) % 360,
+            isCenter: false
+          });
+        }
+      }
+      return points;
+    }
+
+    async function fetchForecast(points) {
+      try {
+        return await fetchForecastChunk(points);
+      } catch (error) {
+        const chunks = [];
+        for (let i = 0; i < points.length; i += 35) chunks.push(points.slice(i, i + 35));
+        const responses = [];
+        for (const chunk of chunks) {
+          responses.push(await fetchForecastChunk(chunk));
+          await sleep(900);
+        }
+        return responses.flat();
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function setLoading(active) {
+      document.body.classList.toggle("is-loading", active);
+      const label = document.getElementById("loadingText");
+      if (label) label.textContent = active ? "正在生成采样点..." : "采样点已生成";
+    }
+
+    async function fetchForecastChunk(chunk) {
+        const url = new URL("https://api.open-meteo.com/v1/forecast");
+        url.searchParams.set("latitude", chunk.map((p) => p.lat.toFixed(5)).join(","));
+        url.searchParams.set("longitude", chunk.map((p) => p.lon.toFixed(5)).join(","));
+        url.searchParams.set("hourly", CONFIG.forecastVars.join(","));
+        url.searchParams.set("daily", "sunrise,sunset");
+        url.searchParams.set("timezone", "auto");
+        url.searchParams.set("forecast_days", "7");
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Open-Meteo ${response.status}`);
+        const data = await response.json();
+        return Array.isArray(data) ? data : [data];
+    }
+
+    function evaluatePoint(data, point, mode, slot, rayDatas = []) {
+      if (!data?.hourly?.time?.length) return null;
+      const dayIndex = clamp(state.dayOffset, 0, 6);
+      const dailyTime = mode === "evening"
+        ? data.daily?.sunset?.[dayIndex]
+        : data.daily?.sunrise?.[dayIndex];
+      if (!dailyTime) return null;
+
+      const target = new Date(dailyTime).getTime();
+      const offsets = mode === "evening" ? [-75, -45, -15, 15, 45] : [-45, -15, 15, 45, 75];
+      const sampleTime = target + offsets[slot] * 60 * 1000;
+      const index = nearestIndex(data.hourly.time, sampleTime);
+      const sample = sampleWeather(data, index);
+      const { low, mid, high, total, humidity, visibilityKm, precipitation, windSpeed } = sample;
+      const raySamples = rayDatas.map(({ data: rayData, distance }) => {
+        const rayIndex = nearestIndex(rayData.hourly.time, sampleTime);
+        return { ...sampleWeather(rayData, rayIndex), distance };
+      });
+
+      const canvasCloud = Math.max(mid, high, (mid + high) / 2);
+      const cloudAmount = Math.max(total, low, mid, high);
+      const noCloud = cloudAmount < 8;
+      const noCanvas = canvasCloud < 12;
+      const lowBlock = low > 55;
+      const rainy = precipitation > 0.15;
+
+      const localLight = clamp(100 - low * 1.55 - precipitation * 70 + normalize(visibilityKm, 5, 22) * 12 - overPenalty(humidity, 86, 1.1), 0, 100);
+      const ray = evaluateRayPath(raySamples);
+      const midScore = bandScore(mid, 22, 54, 82);
+      const highScore = bandScore(high, 18, 58, 86);
+      const canvas = noCanvas ? clamp(canvasCloud * 2.4, 0, 28) : clamp(midScore * 0.58 + highScore * 0.42 - overPenalty(total, 94, 0.85), 0, 100);
+      const atmosphere = clamp(normalize(visibilityKm, 6, 24) * 72 + bandScore(humidity, 35, 62, 84) * 0.28, 0, 100);
+      const stability = clamp(96 - windSpeed * 2.8, 35, 96);
+      let score = clamp(ray.score * 0.35 + canvas * 0.35 + atmosphere * 0.15 + stability * 0.10 + ray.consistency * 0.05, 0, 100);
+
+      if (noCloud) score = Math.min(score, 12);
+      else if (noCanvas) score = Math.min(score, 32);
+      if (lowBlock) score = Math.min(score, 48);
+      if (rainy) score = Math.min(score, 42);
+      if (ray.rainBlocked) score = Math.min(score, 42);
+      if (ray.blocked) score = Math.min(score, 52);
+      if (total > 96 && low > 45) score = Math.min(score, 45);
+
+      return {
+        score,
+        lightPath: ray.score,
+        localLight,
+        ray,
+        canvas,
+        atmosphere,
+        stability,
+        noCloud,
+        noCanvas,
+        lowBlock,
+        rainy,
+        low,
+        mid,
+        high,
+        total,
+        humidity,
+        visibilityKm,
+        precipitation,
+        windSpeed,
+        sampleTime,
+        targetTime: target,
+        distance: point.distance,
+        bearing: point.bearing,
+        rayAzimuth: sunAzimuth(point.lat, mode, state.dayOffset),
+        reasons: makeReasons({ low, mid, high, total, humidity, visibilityKm, precipitation, windSpeed, score, lightPath: ray.score, canvas, atmosphere, noCloud, noCanvas, lowBlock, rainy, ray, mode })
+      };
+    }
+
+    function sampleWeather(data, index) {
+      const h = data.hourly;
+      return {
+        low: valueAt(h.cloud_cover_low, index),
+        mid: valueAt(h.cloud_cover_mid, index),
+        high: valueAt(h.cloud_cover_high, index),
+        total: valueAt(h.cloud_cover, index),
+        humidity: valueAt(h.relative_humidity_2m, index),
+        visibilityKm: valueAt(h.visibility, index) / 1000,
+        precipitation: valueAt(h.precipitation, index),
+        windSpeed: valueAt(h.wind_speed_10m, index)
+      };
+    }
+
+    function makeOfflineForecast(point) {
+      const seed = seeded(point.lon, point.lat, point.rayDistance || 0);
+      const hourly = {
+        time: [],
+        cloud_cover: [],
+        cloud_cover_low: [],
+        cloud_cover_mid: [],
+        cloud_cover_high: [],
+        relative_humidity_2m: [],
+        visibility: [],
+        precipitation: [],
+        wind_speed_10m: []
+      };
+      const daily = { sunrise: [], sunset: [] };
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      for (let day = 0; day < 7; day += 1) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + day);
+        const sunriseHour = 5.7 + clamp((point.lat - 22) * 0.025, -0.35, 0.45);
+        const sunsetHour = 18.7 - clamp((point.lat - 22) * 0.018, -0.25, 0.35);
+        daily.sunrise.push(localDateTime(date, sunriseHour));
+        daily.sunset.push(localDateTime(date, sunsetHour));
+        for (let hour = 0; hour < 24; hour += 1) {
+          const time = new Date(date);
+          time.setHours(hour, 0, 0, 0);
+          const wave = Math.sin((point.lon * 0.17 + point.lat * 0.31 + day * 0.9 + hour * 0.23 + seed) * Math.PI);
+          const dayWave = Math.sin((day + seed) * 1.7);
+          const coastalMoisture = point.lat < 25 ? 8 : 0;
+          const low = clamp(32 + wave * 24 + coastalMoisture + Math.sin(hour * 0.55 + seed) * 12, 0, 100);
+          const mid = clamp(38 + dayWave * 18 + Math.cos(hour * 0.32 + seed) * 15, 0, 100);
+          const high = clamp(36 + Math.sin(point.lon * 0.12 + day + seed) * 26 + Math.cos(hour * 0.18) * 10, 0, 100);
+          const total = clamp(Math.max(low, mid, high) + (low + mid + high) * 0.10, 0, 100);
+          const humidity = clamp(56 + low * 0.32 + coastalMoisture + Math.sin(hour * 0.2 + seed) * 10, 35, 96);
+          const precipitation = low > 72 && humidity > 82 ? 0.2 + (low - 72) * 0.02 : 0;
+          hourly.time.push(localDateTime(time, hour));
+          hourly.cloud_cover_low.push(low);
+          hourly.cloud_cover_mid.push(mid);
+          hourly.cloud_cover_high.push(high);
+          hourly.cloud_cover.push(total);
+          hourly.relative_humidity_2m.push(humidity);
+          hourly.visibility.push(clamp(26000 - humidity * 130 - low * 45, 5000, 26000));
+          hourly.precipitation.push(precipitation);
+          hourly.wind_speed_10m.push(clamp(6 + Math.abs(wave) * 14, 3, 28));
+        }
+      }
+      return { hourly, daily };
+    }
+
+    function seeded(lon, lat, offset) {
+      const value = Math.sin(lon * 12.9898 + lat * 78.233 + offset * 4.711) * 43758.5453;
+      return value - Math.floor(value);
+    }
+
+    function localDateTime(date, hourFloat) {
+      const dateObj = new Date(date);
+      const hour = Math.floor(hourFloat);
+      const minute = Math.round((hourFloat - hour) * 60);
+      dateObj.setHours(hour, minute, 0, 0);
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+    }
+
+    function evaluateRayPath(samples) {
+      if (!samples.length) return { score: 60, consistency: 50, blocked: false, rainBlocked: false, samples: [] };
+      let weightedScore = 0;
+      let weightedConsistency = 0;
+      let blocked = false;
+      let rainBlocked = false;
+      const enriched = samples.map((sample, index) => {
+        const weight = rayWeights[index] || 0.1;
+        const blockingCloud = clamp(sample.low * 0.78 + sample.mid * 0.45 + sample.high * 0.18, 0, 100);
+        const rainPenalty = sample.precipitation > 0.15 ? 45 : sample.precipitation * 80;
+        const visibilityBonus = normalize(sample.visibilityKm, 6, 24) * 12;
+        const score = clamp(100 - blockingCloud - rainPenalty + visibilityBonus, 0, 100);
+        if (sample.precipitation > 0.15) rainBlocked = true;
+        if ((sample.low > 65 || sample.low + sample.mid > 125) && sample.distance <= 150) blocked = true;
+        weightedScore += score * weight;
+        weightedConsistency += (score >= 55 ? 100 : score * 1.4) * weight;
+        return { ...sample, score, blockingCloud, weight };
+      });
+      return {
+        score: clamp(weightedScore, 0, 100),
+        consistency: clamp(weightedConsistency, 0, 100),
+        blocked,
+        rainBlocked,
+        samples: enriched
+      };
+    }
+
+    function nearestIndex(times, target) {
+      let best = 0;
+      let bestDiff = Infinity;
+      times.forEach((time, index) => {
+        const diff = Math.abs(new Date(time).getTime() - target);
+        if (diff < bestDiff) {
+          best = index;
+          bestDiff = diff;
+        }
+      });
+      return best;
+    }
+
+    function valueAt(values, index) {
+      const value = Number(values?.[index]);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function bandScore(value, low, ideal, high) {
+      if (value <= low) return normalize(value, 0, low) * 62;
+      if (value <= ideal) return 62 + normalize(value, low, ideal) * 38;
+      if (value <= high) return 100 - normalize(value, ideal, high) * 28;
+      return Math.max(12, 72 - (value - high) * 2.2);
+    }
+
+    function normalize(value, min, max) {
+      return clamp((value - min) / (max - min), 0, 1);
+    }
+
+    function overPenalty(value, threshold, ratio) {
+      return Math.max(0, value - threshold) * ratio;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function makeReasons(v) {
+      const reasons = [];
+      const scene = v.mode === "evening" ? "日落" : "日出";
+      const canvas = (v.mid + v.high) / 2;
+
+      if (v.noCloud) {
+        reasons.push(`低云、中云、高云几乎都是 0，可以看到干净的${scene}，但缺少被照红的云，基本不是火烧云局。`);
+        reasons.push(`适合拍太阳轮廓、城市剪影或长焦落日，不建议专门追火烧云。`);
+        return reasons;
+      }
+
+      const rayDirection = v.mode === "evening" ? "西侧日落光路" : "东侧日出光路";
+      if (v.ray.rainBlocked) reasons.push(`${rayDirection}有降水信号，光路风险高，不建议专门拍火烧云。`);
+      else if (v.ray.blocked) reasons.push(`${rayDirection}中低云偏厚，远处云墙可能挡住低角度阳光。`);
+      else if (v.ray.score >= 70) reasons.push(`${rayDirection}较通透，低角度阳光有机会照到本地云层。`);
+      else reasons.push(`${rayDirection}条件一般，远处云量会压低火烧云稳定性。`);
+
+      if (v.noCanvas) {
+        reasons.push(`中高云太少，天空缺少“承光画布”，即使地平线通透也很难形成大片火烧云。`);
+      } else if (canvas >= 25 && canvas <= 70) {
+        reasons.push(`中高云覆盖适中，有机会被低角度阳光从下方染红。`);
+      } else {
+        reasons.push(`中高云偏满，可能从火烧云变成灰白云盖，观感会打折。`);
+      }
+
+      if (v.low < 25) reasons.push(`${scene}方向低云较少，太阳光路被挡住的风险较低。`);
+      else if (v.low < 55) reasons.push(`低云偏多，需要现场确认地平线是否有透光缝。`);
+      else reasons.push(`低云较厚，低角度阳光容易被挡住，这是主要扣分项。`);
+
+      if (v.precipitation > 0.15) reasons.push(`窗口内有降水信号，出片风险高，不建议专门出门。`);
+      if (v.visibilityKm >= 15) reasons.push(`能见度较好，颜色和层次更容易干净。`);
+      else if (v.visibilityKm >= 8) reasons.push(`能见度一般，可能有水汽或灰雾，色彩会偏柔。`);
+      else reasons.push(`能见度偏低，通透度不足，火烧云即使出现也容易发灰。`);
+
+      if (v.score < 40) reasons.push(`综合指数低，更适合顺路观察，不建议专门跑机位。`);
+      else if (v.score < 60) reasons.push(`有局部机会，但不稳定，建议只在附近机动。`);
+      else if (v.score < 78) reasons.push(`条件不错，可以提前踩点，保留 30 分钟机动时间。`);
+      else reasons.push(`多项条件同时在线，值得专门安排机位。`);
+      return reasons;
+    }
+
+    function updateMap() {
+      if (!map || !state.mapReady || !map.getSource("radar")) return;
+      const source = map.getSource("radar");
+      source.setData({ type: "FeatureCollection", features: state.features });
+      updateLayerPaint();
+      updateSunLine();
+      renderMarkers();
+    }
+
+    function updateLayerPaint() {
+      if (!map || !map.getLayer("radar-heat")) return;
+      map.setPaintProperty("radar-heat", "heatmap-weight", ["interpolate", ["linear"], ["get", "score"], 0, 0, 100, 1]);
+      map.setPaintProperty("radar-points", "circle-radius", ["interpolate", ["linear"], ["get", "score"], 0, 6, 100, 14]);
+      map.setPaintProperty("radar-points", "circle-color", [
+        "interpolate", ["linear"], ["get", "score"],
+        0, "#53cdda", 45, "#ffd166", 70, "#ff9f1c", 85, "#ef476f", 100, "#b5179e"
+      ]);
+      document.getElementById("legendName").textContent = "火烧云指数";
+    }
+
+    function updateSunLine() {
+      if (!map || !map.getSource("sunline")) return;
+      const az = sunAzimuth(state.center[1], state.mode, state.dayOffset);
+      const end = destination(state.center, az, 42);
+      map.getSource("sunline").setData({
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: [toMapCoord(state.center), toMapCoord(end)] }
+        }]
+      });
+    }
+
+    function renderMarkers() {
+      state.markers.forEach((marker) => marker.remove());
+      state.markers = [];
+      if (!map || !state.features.length) return;
+      const visibleFeatures = state.features;
+      visibleFeatures.forEach((feature) => {
+        const value = feature.properties.score;
+        const markerEl = document.createElement("div");
+        markerEl.className = `radar-marker ${value >= 82 ? "hot" : ""}`;
+        markerEl.style.background = colorForScore(value);
+        markerEl.title = `${Math.round(feature.properties.score)} 火烧云指数`;
+        markerEl.addEventListener("click", (event) => {
+          event.stopPropagation();
+          selectFeature(feature);
+        });
+        const marker = new maplibregl.Marker({ element: markerEl, anchor: "center" })
+          .setLngLat(feature.geometry.coordinates)
+          .addTo(map);
+        state.markers.push(marker);
+      });
+    }
+
+    function selectFeature(feature) {
+      const fullFeature = feature.geometry
+        ? findFeatureByCoordinates(feature.geometry.coordinates)
+        : findFeatureByBase(feature.properties);
+      state.selected = fullFeature?.properties || feature.properties;
+      document.body.classList.add("has-mobile-selection");
+      updatePanel();
+    }
+
+    function focusMapOn(center, options = {}) {
+      if (!map) return;
+      const mobile = isMobileViewport();
+      map.flyTo({
+        center,
+        zoom: options.zoom ?? map.getZoom(),
+        pitch: 0,
+        bearing: 0,
+        duration: options.duration ?? 520,
+        offset: mobile ? [0, Math.round(window.innerHeight * 0.18)] : [0, 0]
+      });
+    }
+
+    function isMobileViewport() {
+      return window.matchMedia("(max-width: 760px)").matches;
+    }
+
+    function findFeatureByCoordinates(coords) {
+      return state.features.find((feature) => {
+        const [lon, lat] = feature.geometry.coordinates;
+        return Math.abs(lon - coords[0]) < 0.00001 && Math.abs(lat - coords[1]) < 0.00001;
+      });
+    }
+
+    function findFeatureByBase(props) {
+      if (!props) return null;
+      return state.features.find((feature) => (
+        Math.abs(feature.properties.baseLon - Number(props.baseLon)) < 0.00001 &&
+        Math.abs(feature.properties.baseLat - Number(props.baseLat)) < 0.00001
+      ));
+    }
+
+    function colorForScore(value) {
+      if (value >= 88) return "#b5179e";
+      if (value >= 76) return "#ef476f";
+      if (value >= 62) return "#ff9f1c";
+      if (value >= 42) return "#ffd166";
+      return "#53cdda";
+    }
+
+    function toMapCoord(coord) {
+      return wgs84ToGcj02(coord[0], coord[1]);
+    }
+
+    function wgs84ToGcj02(lon, lat) {
+      if (outOfChina(lon, lat)) return [lon, lat];
+      const a = 6378245.0;
+      const ee = 0.00669342162296594323;
+      let dLat = transformLat(lon - 105.0, lat - 35.0);
+      let dLon = transformLon(lon - 105.0, lat - 35.0);
+      const radLat = lat / 180.0 * Math.PI;
+      let magic = Math.sin(radLat);
+      magic = 1 - ee * magic * magic;
+      const sqrtMagic = Math.sqrt(magic);
+      dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+      dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+      return [lon + dLon, lat + dLat];
+    }
+
+    function outOfChina(lon, lat) {
+      return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
+    }
+
+    function transformLat(x, y) {
+      let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+      ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+      ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+      return ret;
+    }
+
+    function transformLon(x, y) {
+      let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+      ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+      ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+      return ret;
+    }
+
+    function sunAzimuth(lat, mode, dayOffset = 0) {
+      const now = new Date();
+      now.setDate(now.getDate() + dayOffset);
+      const start = new Date(now.getFullYear(), 0, 0);
+      const day = Math.floor((now - start) / 86400000);
+      const decl = 23.44 * Math.sin((2 * Math.PI / 365) * (day - 81)) * Math.PI / 180;
+      const phi = lat * Math.PI / 180;
+      const h = -0.833 * Math.PI / 180;
+      const cosA = (Math.sin(h) - Math.sin(phi) * Math.sin(decl)) / (Math.cos(phi) * Math.cos(decl));
+      const a = Math.acos(clamp(cosA, -1, 1)) * 180 / Math.PI;
+      return mode === "evening" ? 360 - a : a;
+    }
+
+    function destination(center, bearingDeg, distanceKm) {
+      const [lon, lat] = center;
+      const bearing = bearingDeg * Math.PI / 180;
+      const d = distanceKm / 6371;
+      const lat1 = lat * Math.PI / 180;
+      const lon1 = lon * Math.PI / 180;
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(bearing));
+      const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+      return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
+    }
+
+    function updatePanel() {
+      const local = state.selected || state.local;
+      if (!local) return;
+      const best = state.best?.properties;
+      const guide = grade(local.score);
+      const finalGuide = local.rainy
+        ? { label: "降水风险", short: "不跑", hint: "窗口内有雨，不建议拍摄" }
+        : guide;
+      document.getElementById("localScore").textContent = Math.round(local.score);
+      document.getElementById("localGrade").textContent = finalGuide.label;
+      document.getElementById("goLevel").textContent = finalGuide.short;
+      document.getElementById("goHint").textContent = finalGuide.hint;
+      document.getElementById("selectedPoint").textContent = local.distance > 1
+        ? `${bearingName(local.bearing)} ${Math.round(local.distance)}km`
+        : "城市中心";
+      document.getElementById("bestWindow").textContent = formatWindow(local.targetTime, state.mode);
+      document.getElementById("bestArea").textContent = best
+        ? `${Math.round(best.score)} · ${bearingName(best.bearing)} ${Math.round(best.distance)}km`
+        : "--";
+      document.getElementById("rayFacts").textContent = `${Math.round(local.ray.score)} · ${state.mode === "evening" ? "西侧" : "东侧"}`;
+      document.getElementById("sampleFacts").textContent = formatSample(local.sampleTime).replace(" 采样", "");
+      setBar("ray", local.ray.score, 100, "score");
+      setBar("low", local.low, 100, "inverse");
+      setBar("mid", local.mid, 100, "cloud");
+      setBar("high", local.high, 100, "cloud");
+      document.getElementById("rayValue").textContent = Math.round(local.ray.score);
+      document.getElementById("lowValue").textContent = `${Math.round(local.low)}%`;
+      document.getElementById("midValue").textContent = `${Math.round(local.mid)}%`;
+      document.getElementById("highValue").textContent = `${Math.round(local.high)}%`;
+      updateWeatherPanel(local);
+      document.getElementById("timeLabel").textContent = formatSample(local.sampleTime);
+      const reasons = Array.isArray(local.reasons) ? local.reasons : [String(local.reasons || "当前采样点数据已更新。")];
+      document.getElementById("reasons").innerHTML = reasons.map((reason) => `<li>${reason}</li>`).join("");
+    }
+
+    function updateWeatherPanel(local) {
+      document.getElementById("weatherSummary").textContent = local.rainy ? "有雨，不建议" : "无明显降水";
+      document.getElementById("rainFacts").textContent = local.precipitation > 0
+        ? `${local.precipitation.toFixed(1)}mm`
+        : "无雨";
+      document.getElementById("windFacts").textContent = `${local.windSpeed.toFixed(1)}km/h`;
+      document.getElementById("visibilityFacts").textContent = `${local.visibilityKm.toFixed(1)}km`;
+      document.getElementById("humidityValue").textContent = `${Math.round(local.humidity)}%`;
+      setBar("rain", local.precipitation, 2, "rain");
+      setBar("wind", local.windSpeed, 40, "neutral");
+      setBar("visibility", local.visibilityKm, 25, "score");
+      setBar("humidity", local.humidity, 100, "humidity");
+    }
+
+    function setBar(name, value, max, mode = "score") {
+      const bar = document.getElementById(`${name}Bar`);
+      if (!bar) return;
+      if (!Number.isFinite(value)) {
+        bar.style.width = "0%";
+        return;
+      }
+      const pct = clamp(value / max * 100, 0, 100);
+      bar.style.width = `${pct}%`;
+      bar.style.background = barColor(mode, value, pct);
+    }
+
+    function barColor(mode, value, pct) {
+      if (mode === "rain") return value > 0.15 ? "#ef476f" : "#19a7ce";
+      if (mode === "inverse") return value > 55 ? "#ef476f" : value > 32 ? "#ffd166" : "#19a7ce";
+      if (mode === "cloud") return pct >= 35 && pct <= 78 ? "#ff9f1c" : pct > 86 ? "#ef476f" : "#53cdda";
+      if (mode === "humidity") return pct > 86 ? "#ef476f" : pct > 45 ? "#ff9f1c" : "#53cdda";
+      if (mode === "neutral") return pct > 70 ? "#ef476f" : pct > 38 ? "#ffd166" : "#19a7ce";
+      return colorForScore(pct);
+    }
+
+    function grade(value) {
+      if (value >= 82) return { label: "强烈推荐", short: "出门", hint: "值得专门安排机位" };
+      if (value >= 70) return { label: "值得一试", short: "可冲", hint: "提前到位，保留机动" };
+      if (value >= 60) return { label: "有机会", short: "近处", hint: "只建议附近机动" };
+      if (value >= 40) return { label: "不稳定", short: "观望", hint: "顺路看看，不专门跑" };
+      return { label: "不建议", short: "不跑", hint: "低于 40，不建议出门" };
+    }
+
+    function formatWindow(target, mode) {
+      const start = target + (mode === "evening" ? -70 : -40) * 60000;
+      const end = target + (mode === "evening" ? 35 : 80) * 60000;
+      return `${formatTime(start)}-${formatTime(end)}`;
+    }
+
+    function formatSample(time) {
+      const date = new Date(time);
+      return `${date.getMonth() + 1}/${date.getDate()} ${formatTime(time)} 采样`;
+    }
+
+    function formatTime(time) {
+      return new Date(time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+
+    function bearingName(deg) {
+      const names = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"];
+      return names[Math.round(deg / 45) % 8];
+    }
+
+    function emptySource() {
+      return { type: "geojson", data: { type: "FeatureCollection", features: [] } };
+    }
+
+    function emptyLineSource() {
+      return { type: "geojson", data: { type: "FeatureCollection", features: [] } };
+    }
+
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "GoldenHourRadar",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "python3 -m http.server 4173",
+      "description": "Serves the single-file GoldenHourRadar web app at http://localhost:4173 (open ?map=en for the English map)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 4173
+    }
+  ]
+}
